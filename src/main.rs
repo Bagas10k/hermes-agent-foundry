@@ -2,6 +2,7 @@ mod circuit_breaker;
 mod code_intel;
 mod dag;
 mod db;
+mod engine;
 mod model;
 
 use axum::{
@@ -191,7 +192,6 @@ async fn trigger_agent_handler(
     Path(id): Path<String>,
     payload: Option<Json<serde_json::Value>>,
 ) -> impl IntoResponse {
-    let start_instant = std::time::Instant::now();
     let started_at = chrono::Utc::now().to_rfc3339();
     let run_id = uuid::Uuid::new_v4().to_string();
 
@@ -201,7 +201,6 @@ async fn trigger_agent_handler(
     let spec_opt = match db.get_agent(&id) {
         Ok(Some(s)) => Some(s),
         _ => {
-            // Cek di seluruh template dalam direktori templates/
             let mut found = None;
             if let Ok(entries) = std::fs::read_dir("templates") {
                 for entry in entries.flatten() {
@@ -219,8 +218,19 @@ async fn trigger_agent_handler(
         }
     };
 
-    let spec_str = match spec_opt {
-        Some(s) => s,
+    let (spec, spec_json) = match spec_opt {
+        Some(s) => match serde_json::from_str::<AgentSpec>(&s) {
+            Ok(spec_obj) => (spec_obj, s),
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({
+                        "success": false,
+                        "error": format!("Gagal mem-parsing skema agen: {}", e)
+                    })),
+                );
+            }
+        },
         None => {
             return (
                 StatusCode::NOT_FOUND,
@@ -232,72 +242,78 @@ async fn trigger_agent_handler(
         }
     };
 
-    let spec: AgentSpec = match serde_json::from_str(&spec_str) {
-        Ok(s) => s,
-        Err(e) => {
-            return (
+    // Pastikan agen tersimpan di tabel agents jika merupakan template bawaan (agar foreign key valid)
+    let category = spec.category.clone().unwrap_or_else(|| "GENERAL".to_string());
+    let _ = db.save_agent(&spec.id, &spec.name, &category, &spec_json);
+
+    let input_params = payload.map(|Json(v)| v);
+
+    // 2. Eksekusi melalui Ephemeral Worker Engine (Zero-Allocation Isolated Thread)
+    let worker_res = engine::ephemeral_worker::spawn_ephemeral_worker(spec.clone(), run_id.clone(), input_params.clone()).await;
+
+    match worker_res {
+        Ok(report) => {
+            let completed_at = chrono::Utc::now().to_rfc3339();
+            let _ = db.record_run(
+                &run_id,
+                &spec.id,
+                &report.status,
+                &started_at,
+                &completed_at,
+                report.steps_executed,
+                report.total_tokens_consumed,
+                &report.output_summary,
+                report.error.as_deref(),
+            );
+
+            (
+                StatusCode::OK,
+                Json(json!({
+                    "success": report.status == "COMPLETED",
+                    "run_id": run_id,
+                    "agent_id": spec.id,
+                    "agent_name": spec.name,
+                    "category": spec.category.unwrap_or_else(|| "GENERAL".to_string()),
+                    "status": report.status,
+                    "execution_order": report.execution_order,
+                    "execution_time_us": report.total_duration_us,
+                    "execution_time_ms": report.total_duration_us / 1000,
+                    "steps_executed": report.steps_executed,
+                    "tokens_consumed": report.total_tokens_consumed,
+                    "input_received": input_params.unwrap_or(json!({})),
+                    "output_summary": report.output_summary,
+                    "step_logs": report.step_logs,
+                    "final_state": report.final_state,
+                    "message": "Eksekusi agen berhasil melalui Ephemeral Worker Engine"
+                })),
+            )
+        }
+        Err(err) => {
+            let completed_at = chrono::Utc::now().to_rfc3339();
+            let _ = db.record_run(
+                &run_id,
+                &spec.id,
+                "FAILED",
+                &started_at,
+                &completed_at,
+                0,
+                0,
+                "Eksekusi worker gagal",
+                Some(&err),
+            );
+
+            (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({
                     "success": false,
-                    "error": format!("Gagal mem-parsing skema agen: {}", e)
+                    "run_id": run_id,
+                    "agent_id": spec.id,
+                    "status": "FAILED",
+                    "error": err
                 })),
-            );
+            )
         }
-    };
-
-    // 2. Validasi DAG & Toposort Kahn
-    let val_res = dag::validate_and_sort_dag(&spec.pipeline_dag);
-    if !val_res.is_valid {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(json!({
-                "success": false,
-                "error": "Validasi integritas DAG gagal",
-                "details": val_res.errors
-            })),
-        );
     }
-
-    let input_params = payload.map(|Json(v)| v).unwrap_or(json!({}));
-    let elapsed = start_instant.elapsed().as_millis();
-    let completed_at = chrono::Utc::now().to_rfc3339();
-    let steps_count = val_res.execution_order.len();
-
-    let output_summary = format!(
-        "Agen '{}' berhasil dieksekusi melalui {} langkah DAG secara deterministik.",
-        spec.name, steps_count
-    );
-
-    let _ = db.record_run(
-        &run_id,
-        &spec.id,
-        "COMPLETED",
-        &started_at,
-        &completed_at,
-        steps_count,
-        0, // Token terhemat berkat cache & determinisme
-        &output_summary,
-        None,
-    );
-
-    (
-        StatusCode::OK,
-        Json(json!({
-            "success": true,
-            "run_id": run_id,
-            "agent_id": spec.id,
-            "agent_name": spec.name,
-            "category": spec.category.unwrap_or_else(|| "GENERAL".to_string()),
-            "status": "COMPLETED",
-            "execution_order": val_res.execution_order,
-            "execution_time_ms": elapsed,
-            "steps_executed": steps_count,
-            "input_received": input_params,
-            "output_summary": output_summary,
-            "tokens_saved_by_cache": 2450,
-            "message": "Eksekusi agen berhasil melalui trigger instan (REST/Webhook)"
-        })),
-    )
 }
 
 async fn list_runs_handler(State(state): State<Arc<AppState>>) -> impl IntoResponse {

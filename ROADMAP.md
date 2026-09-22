@@ -2,7 +2,7 @@
 **Arsitektur & Hak Cipta:** Bagas Cihuy (Bagas Saputra)  
 **Jendela Eksekusi:** Pukul 02:00 - 04:00 WIB (Setiap Malam)  
 **Target Selesai:** 7 Hari Kalender  
-**Status Eksekusi:** Hari 1 Siap Dijalankan  
+**Status Eksekusi:** Hari 1 Selesai Dituntaskan (Hari 2 Siap)  
 
 ---
 
@@ -12,12 +12,12 @@
 - **Fokus Utama:** Menyempurnakan penyimpanan basis data lokal dan runner eksekusi proses sementara.
 - **Tugas Koding:**
   - [x] Rancang skema database `foundry.sqlite` (tabel `agents`, `execution_runs`).
-  - [ ] Implementasikan `src/engine/ephemeral_worker.rs` untuk spawn isolasi tugas berbasis thread/process.
-  - [ ] Bangun event loop transisi state dari simpul ke simpul berikutnya.
-  - [ ] Uji performa latensi alokasi memori (cold-start < 10ms, RAM < 15MB).
+  - [x] Implementasikan `src/engine/ephemeral_worker.rs` untuk spawn isolasi tugas berbasis thread/process.
+  - [x] Bangun event loop transisi state dari simpul ke simpul berikutnya.
+  - [x] Uji performa latensi alokasi memori (cold-start < 10ms, RAM < 15MB).
 - **Misi Belajar & Inovasi:**
   - Merekam pola efisiensi *Zero-Copy Deserialization* pada Rust Serde.
-  - Dokumentasikan catatan pengalaman ke vault: `EXPERIENCES/EXP-FOUNDRY-DAY-1-EPHEMERAL-WORKER.md`.
+  - Dokumentasikan catatan pengalaman ke vault: `EXPERIENCES/EXP-FOUNDRY-HARI-1.md`.
 
 ---
 
