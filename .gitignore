@@ -31,3 +31,4 @@ Thumbs.db
 /tmp/
 /dist/
 .cache/
+target/
