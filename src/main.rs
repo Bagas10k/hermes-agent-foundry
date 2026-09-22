@@ -1,4 +1,5 @@
 mod circuit_breaker;
+mod code_intel;
 mod dag;
 mod db;
 mod model;
