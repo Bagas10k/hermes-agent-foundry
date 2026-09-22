@@ -83,4 +83,64 @@ impl Database {
             Ok(None)
         }
     }
+
+    #[allow(dead_code)]
+    pub fn record_run(
+        &self,
+        id: &str,
+        agent_id: &str,
+        status: &str,
+        started_at: &str,
+        completed_at: &str,
+        steps_executed: usize,
+        tokens_consumed: u64,
+        output_summary: &str,
+        error_message: Option<&str>,
+    ) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO execution_runs (
+                id, agent_id, status, started_at, completed_at,
+                steps_executed, tokens_consumed, output_summary, error_message
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            params![
+                id,
+                agent_id,
+                status,
+                started_at,
+                completed_at,
+                steps_executed as i64,
+                tokens_consumed as i64,
+                output_summary,
+                error_message
+            ],
+        )?;
+        Ok(())
+    }
+
+    #[allow(dead_code)]
+    pub fn list_runs(&self, limit: usize) -> Result<Vec<(String, String, String, String, String, i64, String)>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, agent_id, status, started_at, completed_at, tokens_consumed, output_summary
+             FROM execution_runs
+             ORDER BY started_at DESC
+             LIMIT ?1",
+        )?;
+        let rows = stmt.query_map(params![limit as i64], |row| {
+            Ok((
+                row.get(0)?,
+                row.get(1)?,
+                row.get(2)?,
+                row.get(3)?,
+                row.get(4)?,
+                row.get(5)?,
+                row.get(6)?,
+            ))
+        })?;
+
+        let mut list = Vec::new();
+        for item in rows {
+            list.push(item?);
+        }
+        Ok(list)
+    }
 }
