@@ -1,0 +1,69 @@
+{
+  "id": "tpl-social-autopilot",
+  "name": "Kurator & Perancang Konten Carousel",
+  "category": "CONTENT",
+  "description": "Menyusun draf carousel 4 slide berstandar Swiss Editorial (tanpa emoji, headline tajam, fakta terverifikasi, CTA terarah), siap diaudit sebelum posting.",
+  "icon": "SHARE",
+  "constraints": {
+    "max_steps": 6,
+    "timeout_seconds": 150,
+    "token_budget_per_run": 8000,
+    "requires_human_approval": true
+  },
+  "trigger": {
+    "type": "cron",
+    "schedule": "0 10 * * *",
+    "timezone": "Asia/Jakarta"
+  },
+  "modules": [
+    {
+      "id": "step_topic_scout",
+      "type": "tool",
+      "provider": "builtin.web_search",
+      "name": "Riset Topik Populer",
+      "params": {
+        "query": "artificial intelligence autonomous agent breaking news",
+        "limit": 3
+      }
+    },
+    {
+      "id": "step_draft_carousel",
+      "type": "reasoning",
+      "provider": "hermes.reasoning.structured",
+      "name": "Penyusunan 4 Slide Swiss Editorial",
+      "params": {
+        "model": "ag/claude-sonnet-4-6",
+        "system_prompt": "Tulis carousel tepat 4 slide: Slide 1: Headline & Subjudul provokatif. Slide 2: Fakta Kunci & Data. Slide 3: Analisis Dampak & Solusi. Slide 4: Call to Action. PANTANGAN: Dilarang menggunakan karakter emoji sama sekali.",
+        "input_binding": "{{step_topic_scout.output}}"
+      }
+    },
+    {
+      "id": "step_zero_emoji_guard",
+      "type": "guardrail",
+      "provider": "hermes.guard.zero_emoji",
+      "name": "Pemeriksaan Nol Emoji",
+      "params": {
+        "fail_action": "sanitize_strip"
+      }
+    },
+    {
+      "id": "step_send_approval",
+      "type": "output",
+      "provider": "builtin.telegram_approval",
+      "name": "Kirim Draf ke Operator",
+      "params": {
+        "target_chat_id": "-1004397580704",
+        "title": "[[DRAF KONTEN CAROUSEL 4 SLIDE]]",
+        "content_binding": "{{step_draft_carousel.output}}"
+      }
+    }
+  ],
+  "pipeline_dag": {
+    "nodes": ["step_topic_scout", "step_draft_carousel", "step_zero_emoji_guard", "step_send_approval"],
+    "edges": [
+      {"from": "step_topic_scout", "to": "step_draft_carousel"},
+      {"from": "step_draft_carousel", "to": "step_zero_emoji_guard"},
+      {"from": "step_zero_emoji_guard", "to": "step_send_approval"}
+    ]
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "id": "tpl-doc-action-items",
+  "name": "Ekstraktor Dokumen ke Action Items",
+  "category": "PRODUCTIVITY",
+  "description": "Membaca draf rencana, ringkasan rapat, atau dokumen PRD, lalu mengekstrak poin kewajiban, penanggung jawab, dan tenggat waktu menjadi daftar checklist terstruktur.",
+  "icon": "CHECK",
+  "constraints": {
+    "max_steps": 4,
+    "timeout_seconds": 90,
+    "token_budget_per_run": 6000,
+    "requires_human_approval": false
+  },
+  "trigger": {
+    "type": "manual"
+  },
+  "modules": [
+    {
+      "id": "step_read_doc",
+      "type": "context",
+      "provider": "builtin.file_reader",
+      "name": "Baca Dokumen Sumber",
+      "params": {
+        "file_path_binding": "{{input.file_path}}"
+      }
+    },
+    {
+      "id": "step_extract_tasks",
+      "type": "reasoning",
+      "provider": "hermes.reasoning.structured",
+      "name": "Ekstraksi Komitmen & Tugas",
+      "params": {
+        "model": "ag/claude-sonnet-4-6",
+        "system_prompt": "Ekstrak setiap tugas konkret, pemilik tugas (owner), dan target tanggal dari teks berikut. Format sebagai daftar Markdown checklist: - [ ] [NAMA TUGAS] :: PIC: [Nama] :: DEADLINE: [Tanggal].",
+        "input_binding": "{{step_read_doc.output}}"
+      }
+    },
+    {
+      "id": "step_save_vault",
+      "type": "output",
+      "provider": "builtin.obsidian_writer",
+      "name": "Simpan ke Vault BUKU_CATATAN",
+      "params": {
+        "vault_target_dir": "CATATAN/ACTION-ITEMS",
+        "filename_template": "Action-Items-{{date_today}}.md"
+      }
+    }
+  ],
+  "pipeline_dag": {
+    "nodes": ["step_read_doc", "step_extract_tasks", "step_save_vault"],
+    "edges": [
+      {"from": "step_read_doc", "to": "step_extract_tasks"},
+      {"from": "step_extract_tasks", "to": "step_save_vault"}
+    ]
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "id": "tpl-market-sentinel",
+  "name": "Sentinel Tren Pasar Harian",
+  "category": "FINANCE",
+  "description": "Memantau berita ekonomi makro dan harga pasar setiap pagi, menyaring hoaks, dan mengirimkan laporan padat ke Telegram.",
+  "icon": "CHART",
+  "constraints": {
+    "max_steps": 6,
+    "timeout_seconds": 120,
+    "token_budget_per_run": 8000,
+    "requires_human_approval": false
+  },
+  "trigger": {
+    "type": "cron",
+    "schedule": "0 7 * * *",
+    "timezone": "Asia/Jakarta"
+  },
+  "modules": [
+    {
+      "id": "step_search",
+      "type": "tool",
+      "provider": "builtin.web_search",
+      "name": "Pencarian Berita Pasar",
+      "params": {
+        "query": "market overview crypto macro economics today",
+        "limit": 5
+      }
+    },
+    {
+      "id": "step_synthesize",
+      "type": "reasoning",
+      "provider": "hermes.reasoning.structured",
+      "name": "Sintesis Laporan Analis",
+      "params": {
+        "model": "ag/claude-sonnet-4-6",
+        "system_prompt": "Anda adalah analis kuantitatif senior. Sajikan ringkasan berita dalam 3 bagian: 1) Sentimen Pasar Global, 2) Pergerakan Kunci, 3) Peringatan Risiko. Wajib padat dan bebas kata berbunga-bunga.",
+        "input_binding": "{{step_search.output}}"
+      }
+    },
+    {
+      "id": "step_guardrail",
+      "type": "guardrail",
+      "provider": "hermes.guard.schema",
+      "name": "Audit Format & Fakta",
+      "params": {
+        "required_sections": ["Sentimen Pasar Global", "Pergerakan Kunci", "Peringatan Risiko"],
+        "max_length_chars": 2000
+      }
+    },
+    {
+      "id": "step_notify",
+      "type": "output",
+      "provider": "builtin.telegram",
+      "name": "Kirim ke Grup Telegram",
+      "params": {
+        "target_chat_id": "-1004397580704",
+        "message_template": "[[LAPORAN PASAR HARIAN]]\n\n{{step_synthesize.output}}"
+      }
+    }
+  ],
+  "pipeline_dag": {
+    "nodes": ["step_search", "step_synthesize", "step_guardrail", "step_notify"],
+    "edges": [
+      {"from": "step_search", "to": "step_synthesize"},
+      {"from": "step_synthesize", "to": "step_guardrail"},
+      {"from": "step_guardrail", "to": "step_notify"}
+    ]
+  }
+}

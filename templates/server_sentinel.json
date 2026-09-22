@@ -1,0 +1,57 @@
+{
+  "id": "tpl-server-sentinel",
+  "name": "Sentinel Pemantau Server & Host",
+  "category": "DEVOPS",
+  "description": "Memeriksa kuota RAM, CPU load, status proses PM2, dan sisa ruang disk server secara berkala. Memberikan peringatan dini jika RAM mendekati 9GB.",
+  "icon": "SERVER",
+  "constraints": {
+    "max_steps": 4,
+    "timeout_seconds": 60,
+    "token_budget_per_run": 4000,
+    "requires_human_approval": false
+  },
+  "trigger": {
+    "type": "cron",
+    "schedule": "*/15 * * * *",
+    "timezone": "Asia/Jakarta"
+  },
+  "modules": [
+    {
+      "id": "step_inspect",
+      "type": "tool",
+      "provider": "builtin.terminal",
+      "name": "Inspeksi Metrik Host",
+      "params": {
+        "command": "free -m | awk '/Mem:/ {print $3}' && df -h / | awk 'NR==2 {print $5}'"
+      }
+    },
+    {
+      "id": "step_evaluate",
+      "type": "reasoning",
+      "provider": "hermes.reasoning.deterministic",
+      "name": "Evaluasi Ambang Batas",
+      "params": {
+        "rule_expression": "used_ram_mb > 8500",
+        "input_binding": "{{step_inspect.output}}"
+      }
+    },
+    {
+      "id": "step_alert",
+      "type": "output",
+      "provider": "builtin.telegram",
+      "name": "Peringatan Darurat",
+      "params": {
+        "target_chat_id": "-1004397580704",
+        "condition": "{{step_evaluate.is_breached}}",
+        "message_template": "[[PERINGATAN MEMORI SERVER]]\n\nPenggunaan RAM terdeteksi: {{step_inspect.output}} MB (Ambang batas: 8500 MB). Mohon periksa proses PM2 aktif."
+      }
+    }
+  ],
+  "pipeline_dag": {
+    "nodes": ["step_inspect", "step_evaluate", "step_alert"],
+    "edges": [
+      {"from": "step_inspect", "to": "step_evaluate"},
+      {"from": "step_evaluate", "to": "step_alert"}
+    ]
+  }
+}

@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Databases & Runtime Data
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+data/*.sqlite
+data/*.sqlite-journal
+data/*.sqlite-wal
+
+# Environment Variables & Secrets
+.env
+.env.*
+!.env.example
+
+# Logs & Traces
+logs/
+*.log
+npm-debug.log*
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Ephemeral Output & Cache
+/tmp/
+/dist/
+.cache/

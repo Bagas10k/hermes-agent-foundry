@@ -1,0 +1,66 @@
+{
+  "id": "tpl-code-reviewer",
+  "name": "Asisten Review Kode & Keamanan",
+  "category": "DEV",
+  "description": "Mengaudit git diff / PR baru untuk mendeteksi kerentanan keamanan OWASP, pemborosan komputasi, dan kepatuhan standar clean code.",
+  "icon": "CODE",
+  "constraints": {
+    "max_steps": 5,
+    "timeout_seconds": 180,
+    "token_budget_per_run": 10000,
+    "requires_human_approval": false
+  },
+  "trigger": {
+    "type": "webhook",
+    "path": "/api/webhooks/github-pr"
+  },
+  "modules": [
+    {
+      "id": "step_parse_diff",
+      "type": "context",
+      "provider": "builtin.git_diff_parser",
+      "name": "Ekstrak Git Diff",
+      "params": {
+        "max_lines": 500
+      }
+    },
+    {
+      "id": "step_security_audit",
+      "type": "reasoning",
+      "provider": "hermes.reasoning.structured",
+      "name": "Audit Keamanan & Kualitas",
+      "params": {
+        "model": "ag/claude-sonnet-4-6",
+        "system_prompt": "Audit diff berikut terhadap: 1) Secret leakage, 2) SQL/Command Injection, 3) Unbounded loops/memory leaks, 4) Rekomendasi patch minimal.",
+        "input_binding": "{{step_parse_diff.output}}"
+      }
+    },
+    {
+      "id": "step_format_review",
+      "type": "guardrail",
+      "provider": "hermes.guard.schema",
+      "name": "Format Hasil Review",
+      "params": {
+        "format": "markdown",
+        "require_severity_tags": true
+      }
+    },
+    {
+      "id": "step_output_github",
+      "type": "output",
+      "provider": "builtin.github_pr_comment",
+      "name": "Kirim Komentar ke PR",
+      "params": {
+        "body_template": "## [HERMES CODE REVIEW]\n\n{{step_security_audit.output}}"
+      }
+    }
+  ],
+  "pipeline_dag": {
+    "nodes": ["step_parse_diff", "step_security_audit", "step_format_review", "step_output_github"],
+    "edges": [
+      {"from": "step_parse_diff", "to": "step_security_audit"},
+      {"from": "step_security_audit", "to": "step_format_review"},
+      {"from": "step_format_review", "to": "step_output_github"}
+    ]
+  }
+}
