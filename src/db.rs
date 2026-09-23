@@ -42,6 +42,19 @@ impl Database {
             [],
         )?;
 
+        // Inisialisasi tabel KV memory untuk state persisten antar-run
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS kv_memory (
+                namespace TEXT NOT NULL,
+                key TEXT NOT NULL,
+                value_json TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                expires_at TEXT,
+                PRIMARY KEY (namespace, key)
+            )",
+            [],
+        )?;
+
         Ok(Self { conn })
     }
 

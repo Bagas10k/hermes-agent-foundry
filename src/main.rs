@@ -4,6 +4,7 @@ mod dag;
 mod db;
 mod engine;
 mod model;
+pub mod modules;
 
 use axum::{
     extract::{Path, State},

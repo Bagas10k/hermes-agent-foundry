@@ -2,7 +2,7 @@
 **Arsitektur & Hak Cipta:** Bagas Cihuy (Bagas Saputra)  
 **Jendela Eksekusi:** Pukul 02:00 - 04:00 WIB (Setiap Malam)  
 **Target Selesai:** 7 Hari Kalender  
-**Status Eksekusi:** Hari 1 Selesai Dituntaskan (Hari 2 Siap)  
+**Status Eksekusi:** Hari 1 & Hari 2 Selesai Dituntaskan (Hari 3 Siap)  
 
 ---
 
@@ -24,13 +24,13 @@
 ### HARI 2: Adapter Modul Core: Triggers, Context & KV Memory (Malam Ke-2)
 - **Fokus Utama:** Menghubungkan pemicu dan lapisan memori agen.
 - **Tugas Koding:**
-  - [ ] Buat handler `modules/triggers/cron.rs` (bridge ke Hermes cron ticker).
-  - [ ] Buat handler `modules/triggers/webhook.rs` (inbound HTTP POST listener).
-  - [ ] Buat handler `modules/context/vault_reader.rs` (pembaca terisolasi ke Obsidian Vault).
-  - [ ] Buat handler `modules/context/kv_store.rs` (state persisten antar-run).
+  - [x] Buat handler `modules/triggers/cron.rs` (bridge ke Hermes cron ticker).
+  - [x] Buat handler `modules/triggers/webhook.rs` (inbound HTTP POST listener).
+  - [x] Buat handler `modules/context/vault_reader.rs` (pembaca terisolasi ke Obsidian Vault).
+  - [x] Buat handler `modules/context/kv_store.rs` (state persisten antar-run).
 - **Misi Belajar & Inovasi:**
   - Pola isolasi direktori (*chroot sandbox*) untuk mencegah agen mengakses file sensitif.
-  - Dokumentasikan catatan pengalaman ke vault: `EXPERIENCES/EXP-FOUNDRY-DAY-2-ISOLATED-CONTEXT.md`.
+  - Dokumentasikan catatan pengalaman ke vault: `EXPERIENCES/EXP-FOUNDRY-HARI-2.md`.
 
 ---
 

@@ -208,22 +208,70 @@ impl EphemeralWorker {
     fn dispatch_module_eval(&self, module: &ModuleSpec) -> (serde_json::Value, u64) {
         match module.module_type.as_str() {
             "trigger" => {
-                let out = json!({
-                    "event": "DISPATCH_TRIGGERED",
-                    "provider": module.provider,
-                    "timestamp": chrono::Utc::now().to_rfc3339(),
-                    "state": "ACTIVE"
-                });
-                (out, 0)
+                match module.provider.as_str() {
+                    "cron" => {
+                        let config = crate::modules::triggers::cron::CronTriggerHandler::parse_config(&module.params)
+                            .unwrap_or(crate::modules::triggers::cron::CronTriggerConfig {
+                                schedule: "0 * * * *".to_string(),
+                                timezone: Some("Asia/Jakarta".to_string()),
+                                job_name: module.name.clone(),
+                            });
+                        crate::modules::triggers::cron::CronTriggerHandler::evaluate(&config)
+                    }
+                    "webhook" => {
+                        let config = crate::modules::triggers::webhook::WebhookTriggerHandler::parse_config(&module.params)
+                            .unwrap_or(crate::modules::triggers::webhook::WebhookTriggerConfig {
+                                endpoint_path: None,
+                                secret_token: None,
+                                allowed_sources: None,
+                            });
+                        let incoming = self.context.state_data.get("initial_input");
+                        crate::modules::triggers::webhook::WebhookTriggerHandler::evaluate(&config, incoming, None)
+                    }
+                    _ => {
+                        let out = json!({
+                            "event": "DISPATCH_TRIGGERED",
+                            "provider": module.provider,
+                            "timestamp": chrono::Utc::now().to_rfc3339(),
+                            "state": "ACTIVE"
+                        });
+                        (out, 0)
+                    }
+                }
             }
             "context" => {
-                let out = json!({
-                    "context_loaded": true,
-                    "provider": module.provider,
-                    "params": module.params,
-                    "entries_count": 1
-                });
-                (out, 0)
+                match module.provider.as_str() {
+                    "vault_reader" | "obsidian" => {
+                        let config = crate::modules::context::vault_reader::VaultReaderHandler::parse_config(&module.params)
+                            .unwrap_or(crate::modules::context::vault_reader::VaultReaderConfig {
+                                vault_root: "/home/ubuntu/otak-koding".to_string(),
+                                relative_path: "KNOWLEDGE/INDEX.md".to_string(),
+                                max_lines: Some(500),
+                                strip_frontmatter: Some(false),
+                            });
+                        crate::modules::context::vault_reader::VaultReaderHandler::evaluate(&config)
+                    }
+                    "kv_store" | "memory_kv" => {
+                        let config = crate::modules::context::kv_store::KvStoreHandler::parse_config(&module.params)
+                            .unwrap_or(crate::modules::context::kv_store::KvStoreConfig {
+                                namespace: format!("agent_{}", self.spec.id),
+                                key: "state".to_string(),
+                                op: "GET".to_string(),
+                                value: None,
+                                ttl_seconds: None,
+                            });
+                        crate::modules::context::kv_store::KvStoreHandler::execute_op("data/foundry.sqlite", &config)
+                    }
+                    _ => {
+                        let out = json!({
+                            "context_loaded": true,
+                            "provider": module.provider,
+                            "params": module.params,
+                            "entries_count": 1
+                        });
+                        (out, 0)
+                    }
+                }
             }
             "reasoning" => {
                 let out = json!({
@@ -357,5 +405,98 @@ mod tests {
         assert_eq!(report.execution_order, vec!["trigger_node", "reasoning_node", "output_node"]);
         assert!(report.total_duration_us > 0);
         assert!(report.total_duration_us < 10_000, "Eksekusi ephemeral harus sub-10ms (cold-start cepat)");
+    }
+
+    #[tokio::test]
+    async fn test_ephemeral_worker_with_day2_adapters() {
+        let spec = AgentSpec {
+            id: "test-day2-agent".to_string(),
+            name: "Test Day 2 Adapters".to_string(),
+            version: Some("1.0.0".to_string()),
+            category: Some("TEST".to_string()),
+            description: Some("Uji adapter Cron, Webhook, Vault Reader, dan KV Store".to_string()),
+            author: Some("Bagas Cihuy".to_string()),
+            constraints: Some(AgentConstraints {
+                max_steps: 10,
+                timeout_seconds: 10,
+                token_budget_per_run: 5000,
+                requires_human_approval: false,
+            }),
+            trigger: None,
+            modules: vec![
+                ModuleSpec {
+                    id: "cron_trigger".to_string(),
+                    module_type: "trigger".to_string(),
+                    provider: "cron".to_string(),
+                    name: Some("Cron Ticker".to_string()),
+                    params: json!({
+                        "schedule": "0 2 * * *",
+                        "timezone": "Asia/Jakarta"
+                    }),
+                },
+                ModuleSpec {
+                    id: "kv_checkpoint".to_string(),
+                    module_type: "context".to_string(),
+                    provider: "kv_store".to_string(),
+                    name: Some("KV State Checkpoint".to_string()),
+                    params: json!({
+                        "namespace": "test_agent_day2",
+                        "key": "run_count",
+                        "op": "INCREMENT",
+                        "value": 1
+                    }),
+                },
+                ModuleSpec {
+                    id: "vault_reader_node".to_string(),
+                    module_type: "context".to_string(),
+                    provider: "vault_reader".to_string(),
+                    name: Some("Vault Sandboxed Reader".to_string()),
+                    params: json!({
+                        "vault_root": "/home/ubuntu/hermes-agent-foundry",
+                        "relative_path": "ROADMAP.md",
+                        "max_lines": 5
+                    }),
+                },
+                ModuleSpec {
+                    id: "finish_node".to_string(),
+                    module_type: "output".to_string(),
+                    provider: "stdout".to_string(),
+                    name: Some("Output Finish".to_string()),
+                    params: json!({}),
+                },
+            ],
+            pipeline_dag: PipelineDag {
+                nodes: vec![
+                    "cron_trigger".to_string(),
+                    "kv_checkpoint".to_string(),
+                    "vault_reader_node".to_string(),
+                    "finish_node".to_string(),
+                ],
+                edges: vec![
+                    DagEdge {
+                        from: "cron_trigger".to_string(),
+                        to: "kv_checkpoint".to_string(),
+                    },
+                    DagEdge {
+                        from: "kv_checkpoint".to_string(),
+                        to: "vault_reader_node".to_string(),
+                    },
+                    DagEdge {
+                        from: "vault_reader_node".to_string(),
+                        to: "finish_node".to_string(),
+                    },
+                ],
+            },
+        };
+
+        let report = spawn_ephemeral_worker(spec, "run-test-day2".to_string(), None)
+            .await
+            .expect("Worker Day 2 harus berhasil dieksekusi");
+
+        assert_eq!(report.status, "COMPLETED");
+        assert_eq!(report.steps_executed, 4);
+        assert!(report.final_state.contains_key("node_cron_trigger_output"));
+        assert!(report.final_state.contains_key("node_kv_checkpoint_output"));
+        assert!(report.final_state.contains_key("node_vault_reader_node_output"));
     }
 }
