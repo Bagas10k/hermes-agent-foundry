@@ -626,12 +626,12 @@
           <strong>Rust (Axum + Petgraph)</strong>
         </div>
         <div class="spec-badge">
-          <span>Verifikasi:</span>
-          <strong>Toposort Kahn & Cycle Breaker</strong>
+          <span>Compiler:</span>
+          <strong>Natural Language to DAG</strong>
         </div>
         <div class="spec-badge">
-          <span>Token Guard:</span>
-          <strong>Main Otak (Code Intel Index)</strong>
+          <span>Verifikasi:</span>
+          <strong>Toposort Kahn & Cycle Breaker</strong>
         </div>
         <div class="spec-badge">
           <span>Trigger:</span>
@@ -639,6 +639,47 @@
         </div>
       </div>
     </header>
+
+    <!-- Studio: Prompt-to-Agent Studio (Day 5) -->
+    <section class="studio-panel" style="background: #FFFFFF; border: 1px solid var(--border-subtle); border-radius: 12px; padding: 24px; margin-bottom: 36px; box-shadow: var(--card-shadow);">
+      <div style="font-size: 15px; font-weight: 700; letter-spacing: -0.2px; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between;">
+        <span>Prompt-to-Agent Studio</span>
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 10px; background: #F1F5F9; color: #475569; padding: 2px 8px; border-radius: 4px; border: 1px solid #E2E8F0;">[ALGORITHMIC DAG COMPILER]</span>
+      </div>
+      <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+        Ketik deskripsi tugas dalam bahasa alami. Sistem akan mendeteksi niat secara deterministik (trigger, riset, reasoning, aksi, sink) dan mengompilasinya menjadi skema agen DAG bebas siklus.
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <textarea id="promptInput" style="width: 100%; min-height: 84px; padding: 12px 14px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 14px; border: 1px solid var(--border-subtle); border-radius: 8px; background: #FAFAFA; color: var(--text-primary); resize: vertical; line-height: 1.5;" placeholder="Contoh: Setiap 15 menit pantau harga BTC dan sentimen pasar lalu simpan ringkasannya ke Obsidian Vault..."></textarea>
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <span class="suggestion-chip" data-sample="Pantau commit git baru, lakukan audit keamanan rust lalu laporkan" style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 4px 10px; border-radius: 6px; font-size: 11px; color: #475569; cursor: pointer; font-family: 'JetBrains Mono', monospace;">[Git Code Reviewer]</span>
+            <span class="suggestion-chip" data-sample="Setiap 1 jam periksa status RAM dan disk server, jika kritis kirim telegram" style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 4px 10px; border-radius: 6px; font-size: 11px; color: #475569; cursor: pointer; font-family: 'JetBrains Mono', monospace;">[Server Sentinel]</span>
+            <span class="suggestion-chip" data-sample="Riset berita AI terkini dari web, sintesis draf warta lalu simpan ke catatan" style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 4px 10px; border-radius: 6px; font-size: 11px; color: #475569; cursor: pointer; font-family: 'JetBrains Mono', monospace;">[AI News Harvester]</span>
+          </div>
+
+          <button id="btnCompile" style="background: #0F172A; color: #FFFFFF; border: none; padding: 9px 18px; border-radius: 6px; font-size: 12px; font-weight: 600; font-family: 'JetBrains Mono', monospace; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: background 0.15s ease;">[KOMPILASI AGEN DAG]</button>
+        </div>
+      </div>
+
+      <!-- Preview Hasil Kompilasi -->
+      <div id="compilePreview" style="display: none; margin-top: 16px; padding: 16px; border-radius: 8px; background: #F8FAFC; border: 1px solid #E2E8F0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <div style="font-size: 13px; font-weight: 700; color: #0F172A;" id="previewTitle">[HASIL KOMPILASI: AGEN BARU]</div>
+          <div style="display: flex; gap: 8px;">
+            <button id="btnSaveCompiled" style="background: #059669; color: #FFFFFF; border: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-family: 'JetBrains Mono', monospace; font-weight: 600; cursor: pointer;">[SIMPAN KE FOUNDRY]</button>
+          </div>
+        </div>
+        <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;" id="previewExplanation"></div>
+        <div class="pipeline-wire" style="margin-bottom: 12px;">
+          <div class="pipeline-wire-title">TOPOLOGI HASIL KOMPILASI</div>
+          <div class="pipeline-steps-row" id="previewSteps"></div>
+        </div>
+        <pre class="code-sheet" id="previewJson" style="max-height: 240px;"></pre>
+      </div>
+    </section>
 
     <!-- Toolbar Filters -->
     <div class="toolbar-bar">
@@ -700,6 +741,7 @@
   <script>
     let allAgents = [];
     let activeFilter = 'ALL';
+    let currentCompiledAgent = null;
 
     const API_BASE = window.location.pathname.startsWith('/foundry') ? '/api/foundry' : '/api';
 
@@ -713,6 +755,15 @@
     const telemetryRow = document.getElementById('telemetryRow');
     const btnCloseModal = document.getElementById('btnCloseModal');
     const toastPill = document.getElementById('toastPill');
+
+    const promptInput = document.getElementById('promptInput');
+    const btnCompile = document.getElementById('btnCompile');
+    const compilePreview = document.getElementById('compilePreview');
+    const previewTitle = document.getElementById('previewTitle');
+    const previewExplanation = document.getElementById('previewExplanation');
+    const previewSteps = document.getElementById('previewSteps');
+    const previewJson = document.getElementById('previewJson');
+    const btnSaveCompiled = document.getElementById('btnSaveCompiled');
 
     function showToast(text) {
       toastPill.textContent = text;
@@ -765,8 +816,11 @@
         const card = document.createElement('div');
         card.className = 'agent-card';
 
-        const steps = (agent.pipeline_dag && agent.pipeline_dag.nodes) ? agent.pipeline_dag.nodes : [];
-        const stepsHtml = steps.map(s => `<span class="step-node">${s.type}</span>`).join('<span class="step-sep">→</span>');
+        const rawNodes = (agent.pipeline_dag && agent.pipeline_dag.nodes) ? agent.pipeline_dag.nodes : [];
+        const stepsHtml = rawNodes.map(node => {
+          const label = typeof node === 'string' ? node : (node.name || node.type || node.id);
+          return `<span class="step-node">${label}</span>`;
+        }).join('<span class="step-sep">→</span>');
 
         const triggerUrl = `${window.location.origin}${API_BASE}/agents/${agent.id}/trigger`;
         const curlCmd = `curl -X POST "${triggerUrl}" -H "Content-Type: application/json" -d '{"origin":"dashboard"}'`;
@@ -870,6 +924,74 @@
 
       modalBackdrop.classList.add('active');
     }
+
+    // Prompt Compiler Events
+    btnCompile.addEventListener('click', async () => {
+      const prompt = promptInput.value.trim();
+      if (!prompt) {
+        showToast('[PROMPT TIDAK BOLEH KOSONG]');
+        return;
+      }
+
+      btnCompile.textContent = '[MENGOMPILASI...]';
+      try {
+        const res = await fetch(`${API_BASE}/compiler/prompt-to-agent`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt })
+        });
+        const data = await res.json();
+        btnCompile.textContent = '[KOMPILASI AGEN DAG]';
+
+        if (data.success && data.agent) {
+          currentCompiledAgent = data.agent;
+          previewTitle.textContent = `[HASIL KOMPILASI: ${data.agent.name}]`;
+          previewExplanation.textContent = data.explanation;
+          previewSteps.innerHTML = (data.execution_order || []).map(step => `<span class="step-node">${step}</span>`).join('<span class="step-sep">→</span>');
+          previewJson.textContent = JSON.stringify(data.agent, null, 2);
+          compilePreview.style.display = 'block';
+          showToast('[KOMPILASI DAG BERHASIL]');
+        } else {
+          showToast(`[GALAT: ${data.error || 'Gagal kompilasi'}]`);
+        }
+      } catch (err) {
+        btnCompile.textContent = '[KOMPILASI AGEN DAG]';
+        showToast(`[GALAT: ${err.message}]`);
+      }
+    });
+
+    btnSaveCompiled.addEventListener('click', async () => {
+      if (!currentCompiledAgent) return;
+      btnSaveCompiled.textContent = '[MENYIMPAN...]';
+      try {
+        const res = await fetch(`${API_BASE}/agents`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(currentCompiledAgent)
+        });
+        const data = await res.json();
+        btnSaveCompiled.textContent = '[SIMPAN KE FOUNDRY]';
+
+        if (data.success) {
+          showToast('[AGEN BERHASIL DISIMPAN & DIAKTIFKAN]');
+          allAgents.unshift(currentCompiledAgent);
+          renderCards();
+          compilePreview.style.display = 'none';
+          promptInput.value = '';
+        } else {
+          showToast(`[GALAT: ${data.error || 'Gagal menyimpan'}]`);
+        }
+      } catch (err) {
+        btnSaveCompiled.textContent = '[SIMPAN KE FOUNDRY]';
+        showToast(`[GALAT: ${err.message}]`);
+      }
+    });
+
+    document.querySelectorAll('.suggestion-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        promptInput.value = chip.dataset.sample;
+      });
+    });
 
     btnCloseModal.addEventListener('click', () => {
       modalBackdrop.classList.remove('active');

@@ -170,7 +170,7 @@ mod tests {
 
     #[test]
     fn test_code_intel_incremental_indexing() {
-        let mut engine = CodeIntelEngine::new(":memory:").unwrap();
+        let engine = CodeIntelEngine::new(":memory:").unwrap();
         let hash1 = CodeIntelEngine::calculate_hash("pub fn test_run() {}");
         assert_eq!(hash1.len(), 64);
         assert!(engine.is_file_stale("src/dummy.rs", &hash1).unwrap());

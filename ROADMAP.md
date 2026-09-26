@@ -2,7 +2,7 @@
 **Arsitektur & Hak Cipta:** Bagas Cihuy (Bagas Saputra)  
 **Jendela Eksekusi:** Pukul 02:00 - 04:00 WIB (Setiap Malam)  
 **Target Selesai:** 7 Hari Kalender  
-**Status Eksekusi:** Hari 1, Hari 2, Hari 3 & Hari 4 Selesai Dituntaskan (Hari 5 Siap)  
+**Status Eksekusi:** Hari 1, Hari 2, Hari 3, Hari 4 & Hari 5 Selesai Dituntaskan (Hari 6 Siap)  
 
 ---
 
@@ -63,13 +63,13 @@
 ### HARI 5: No-Code Web Studio: Prompt-to-Agent & Template Picker (Malam Ke-5)
 - **Fokus Utama:** Antarmuka web pengguna untuk pembuatan instan.
 - **Tugas Koding:**
-  - [ ] Buat antarmuka HTML/CSS/JS di `public/` dengan standar Tactile Pastel Pop (Warm Paper & Obsidian, Zero Emoji).
-  - [ ] Implementasikan endpoint API `POST /api/compiler/prompt-to-agent` di Rust.
-  - [ ] Hubungkan generator prompt dengan parser DAG otomatis.
-  - [ ] Buat katalog visual untuk 5 template bawaan dengan tombol 1-klik deploy.
+  - [x] Buat antarmuka HTML/CSS/JS di `public/` dengan standar Tactile Pastel Pop (Warm Paper & Obsidian, Zero Emoji).
+  - [x] Implementasikan endpoint API `POST /api/compiler/prompt-to-agent` di Rust.
+  - [x] Hubungkan generator prompt dengan parser DAG otomatis.
+  - [x] Buat katalog visual untuk 5 template bawaan dengan tombol 1-klik deploy.
 - **Misi Belajar & Inovasi:**
-  - Evaluasi heuristik kompilasi teks alami menjadi topologi graf yang bebas cacat.
-  - Dokumentasikan catatan pengalaman ke vault: `EXPERIENCES/EXP-FOUNDRY-DAY-5-PROMPT-COMPILER.md`.
+  - [x] Evaluasi heuristik kompilasi teks alami menjadi topologi graf yang bebas cacat.
+  - [x] Dokumentasikan catatan pengalaman ke vault: `EXPERIENCES/EXP-FOUNDRY-HARI-5.md`.
 
 ---
 

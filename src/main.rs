@@ -1,5 +1,6 @@
 mod circuit_breaker;
 mod code_intel;
+pub mod compiler;
 mod dag;
 mod db;
 mod engine;
@@ -45,6 +46,7 @@ async fn main() {
     let app = Router::new()
         .route("/api/health", get(health_check))
         .route("/api/dag/validate", post(validate_dag_handler))
+        .route("/api/compiler/prompt-to-agent", post(compile_prompt_handler))
         .route("/api/agents", get(list_agents_handler).post(create_or_update_agent_handler))
         .route("/api/agents/:id", get(get_agent_handler))
         .route("/api/agents/:id/trigger", post(trigger_agent_handler))
@@ -88,6 +90,21 @@ async fn validate_dag_handler(Json(dag): Json<model::PipelineDag>) -> impl IntoR
             "execution_order": [],
             "errors": result.errors
         })))
+    }
+}
+
+async fn compile_prompt_handler(
+    Json(req): Json<compiler::PromptCompilerRequest>,
+) -> impl IntoResponse {
+    match compiler::compile_prompt_to_agent(&req) {
+        Ok(resp) => (StatusCode::OK, Json(json!(resp))),
+        Err(err_msg) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "success": false,
+                "error": err_msg
+            })),
+        ),
     }
 }
 
